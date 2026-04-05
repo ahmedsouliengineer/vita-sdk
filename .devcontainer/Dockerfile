@@ -51,8 +51,11 @@ COPY include/ ./include/
 COPY src/ ./src/
 
 # I am choosing to build a STATIC library for easy linking in other repos
-RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ && -DBUILD_TESTING=OFF && \
-    # I am choosing 'vita' to match the add_library(vita) in our CMakeLists.txt
+# I am choosing 'vita' to match the add_library(vita) in our CMakeLists.txt
+RUN cmake -B build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_COMPILER=clang++ \
+    -DBUILD_TESTING=OFF && \
     cmake --build build --target vita
 
 # --- STAGE 4: Release (The 'SDK Delivery' Stage) ---
