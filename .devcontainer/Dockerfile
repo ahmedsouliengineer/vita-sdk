@@ -67,7 +67,7 @@ WORKDIR /usr/local/
 # I am choosing to copy ONLY the headers and the compiled library
 # This acts as a "sysroot" that you could theoretically mount or copy.
 COPY --from=builder /app/include/ /usr/local/include/
-COPY --from=builder /app/build/libvita-sdk.a /usr/local/lib/
+COPY --from=builder /app/build/libvita.a /usr/local/lib/
 
 # We don't need an ENTRYPOINT for an SDK
 CMD ["/bin/bash"]
