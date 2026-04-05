@@ -21,7 +21,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # I am choosing to remove experimental flags to let C++23 features run natively.
 endif()
 
-# --- 1. FIND PACKAGES ---
+# --- 1. COVERAGE CONFIGURATION (NATIVE LLVM) ---
+# I am choosing to restore this so the CI can actually generate .profraw files.
+option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
+if(ENABLE_COVERAGE)
+    add_compile_options(-fprofile-instr-generate -fcoverage-mapping -fno-inline -g -O0)
+    add_link_options(-fprofile-instr-generate -fcoverage-mapping)
+endif()
+
+# --- 2. FIND PACKAGES ---
 find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
 
@@ -29,7 +37,7 @@ find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-# --- 2. THE SDK LIBRARY TARGET ---
+# --- 3. THE SDK LIBRARY TARGET ---
 # I am choosing to keep it STATIC for easier linking into microservices.
 add_library(vita STATIC)
 
@@ -50,7 +58,7 @@ target_link_libraries(vita
         OpenSSL::SSL
 )
 
-# --- 3. GOOGLETEST (Validation) ---
+# --- 4. GOOGLETEST (Validation) ---
 enable_testing()
 # I am choosing to create a dedicated test runner for the configuration logic.
 add_executable(unit_tests 
@@ -67,6 +75,6 @@ target_link_libraries(unit_tests
 include(GoogleTest)
 gtest_discover_tests(unit_tests)
 
-# --- 4. INSTALLATION ---
+# --- 5. INSTALLATION ---
 install(TARGETS vita DESTINATION lib)
 install(DIRECTORY include/vita DESTINATION include)
