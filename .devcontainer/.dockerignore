@@ -1,0 +1,8 @@
+build/
+.cache/
+.ccache/
+out/
+.git/
+README.md
+renovate.json
+.vscode/

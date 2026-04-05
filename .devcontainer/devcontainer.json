@@ -1,0 +1,36 @@
+{
+    "name": "Vita SDK Dev Environment",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "..",
+        "target": "developer"
+    },
+    "runArgs": [
+        "--network=host"
+    ],
+    // I am adding this to trigger the build automatically when the container opens.
+    "postCreateCommand": "cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build build",
+    
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "llvm-vs-code-extensions.vscode-clangd",
+                "hbenl.vscode-test-explorer",
+                "ms-vscode.cpptools-extension-pack"
+            ],
+            "settings": {
+                "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+                "editor.formatOnSave": true,
+                "C_Cpp.intelliSenseEngine": "disabled",
+                "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
+                "clangd.arguments": [
+                    "--compile-commands-dir=${workspaceFolder}/build",
+                    "--clang-tidy"
+                ]
+            }
+        }
+    },
+    "remoteUser": "vscode"
+}

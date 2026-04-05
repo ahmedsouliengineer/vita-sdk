@@ -1,0 +1,38 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":separateMultipleMajorReleases",
+    ":pinDigestsDisabled",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "packageRules": [
+    {
+      "description": "Group all GitHub Actions together to reduce PR noise",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions dependencies"
+    },
+    {
+      "description": "Automatically merge minor/patch updates if CI passes",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
+      "description": "Keep OpenTelemetry dependencies grouped and synchronized",
+      "matchPackageNames": ["open-telemetry/opentelemetry-cpp", "open-telemetry/opentelemetry-proto"],
+      "groupName": "opentelemetry"
+    },
+    {
+      "description": "Do not update Ubuntu or GCC versions without manual review",
+      "matchPackageNames": ["ubuntu", "gcc", "clang"],
+      "matchManagers": ["dockerfile"],
+      "enabled": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "addLabels": ["security"]
+  },
+  "timezone": "UTC"
+}

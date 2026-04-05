@@ -1,0 +1,68 @@
+name: Vita SDK CI (Library Validation)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: "0. Checkout Code"
+      uses: actions/checkout@v4
+
+    - name: "1. Install SDK Dependencies"
+      # I am choosing to remove ALSA/ZMQ and add OTel-related networking libs
+      run: |
+        sudo apt-get update && sudo apt-get install -y \
+          libgtest-dev libcurl4-openssl-dev libssl-dev pkg-config \
+          cmake g++ cppcheck clang-18 clang-tidy-18 llvm-18 \
+          libfuzzer-18-dev libstdc++-13-dev build-essential
+        
+        # Toolchain symlinking
+        sudo ln -sf /usr/bin/clang-18 /usr/bin/clang
+        sudo ln -sf /usr/bin/clang++-18 /usr/bin/clang++
+        sudo ln -sf /usr/bin/clang-tidy-18 /usr/bin/clang-tidy
+        sudo ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov
+        sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata
+        
+        # GTest setup
+        cd /usr/src/googletest && sudo cmake . && sudo cmake --build . && sudo cp lib/*.a /usr/lib
+
+    - name: "2. Static Analysis (Cppcheck)"
+      run: cppcheck --enable=all -I include --suppress=missingIncludeSystem src/ include/ --error-exitcode=1
+
+    - name: "3. Linting (Clang-Tidy)"
+      # I am maintaining the GCC 13 override to ensure C++23 <expected> is found
+      run: |
+        cmake -B build \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DCMAKE_CXX_FLAGS="--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13"
+        find src include -name "*.cpp" -o -name "*.hpp" | xargs clang-tidy -p build --header-filter='.*'
+
+    - name: "4. Compilation"
+      # I am choosing to build as a STATIC library
+      run: |
+        cmake -B build \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DENABLE_COVERAGE=ON \
+          -DCMAKE_CXX_FLAGS="--gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13"
+        cmake --build build --parallel $(nproc)
+
+    - name: "5. Unit Testing"
+      run: cd build && ctest --output-on-failure
+
+    - name: "6. Coverage Analysis"
+      # I am choosing to update the path to the SDK source instead of the old alsa_impl.cpp
+      run: |
+        cd build
+        llvm-profdata merge -sparse default.profraw -o test.profdata
+        llvm-cov report ./unit_tests -instr-profile=test.profdata ../src/
+
+    - name: "7. SDK Packaging Verification"
+      # I am choosing to ensure the Docker-based 'release' stage (headers + .a) works
+      run: |
+        docker build --target release -t vita-sdk-dist -f .devcontainer/Dockerfile .
