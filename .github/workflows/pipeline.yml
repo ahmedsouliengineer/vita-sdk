@@ -53,7 +53,9 @@ jobs:
         cmake --build build --parallel $(nproc)
 
     - name: "5. Unit Testing"
-      run: cd build
+      # I am choosing the multi-line block (|) to prevent the 'too many arguments' error.
+      run: |
+        cd build
         LLVM_PROFILE_FILE="default.profraw" ./unit_tests
 
     - name: "6. Coverage Analysis"
