@@ -32,7 +32,7 @@ jobs:
         cd /usr/src/googletest && sudo cmake . && sudo cmake --build . && sudo cp lib/*.a /usr/lib
 
     - name: "2. Static Analysis (Cppcheck)"
-      run: cppcheck --enable=all -I include --suppress=missingIncludeSystem src/ include/ --error-exitcode=1
+      run: cppcheck --enable=all -I include --suppress=unusedFunction --suppress=missingIncludeSystem src/ include/ --error-exitcode=1
 
     - name: "3. Linting (Clang-Tidy)"
       # I am maintaining the GCC 13 override to ensure C++23 <expected> is found

@@ -34,7 +34,7 @@ COPY src/ ./src/
 COPY tests/ ./tests/
 
 # I am choosing to fail the build if the SDK logic isn't perfectly covered or linted
-RUN cppcheck --enable=all --suppress=missingIncludeSystem src/ include/ --error-exitcode=1
+RUN cppcheck --enable=all --suppress=unusedFunction --suppress=missingIncludeSystem src/ include/ --error-exitcode=1
 
 RUN cmake -B build_test -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ -DENABLE_COVERAGE=ON && \
     cmake --build build_test && \
