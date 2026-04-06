@@ -1,4 +1,11 @@
 cmake_minimum_required(VERSION 3.24)
+
+# I am choosing to let the toolchain handle the heavy lifting.
+# Once GTest is installed via vcpkg, this toolchain file will find it automatically.
+if(EXISTS "/opt/vcpkg/scripts/buildsystems/vcpkg.cmake")
+    set(CMAKE_TOOLCHAIN_FILE "/opt/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+endif()
+
 project(vita-sdk VERSION 0.1.0 LANGUAGES CXX)
 
 # --- 0. TOOLCHAIN HARDENING ---
@@ -7,10 +14,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# I am choosing aggressive Clang warnings to keep our SDK robust.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(
-        -Wall -Wextra -Wpedantic 
-        --gcc-install-dir=/usr/lib/gcc/x86_64-linux-gnu/13
+        -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor
+        -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual
+        -Wconversion -Wsign-conversion -Wnull-dereference
+        -Wdouble-promotion -Wformat=2
     )
 endif()
 
@@ -25,10 +35,11 @@ endif()
 find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(opentelemetry-cpp REQUIRED)
 
-# I am choosing to find GTest ONLY if testing is enabled to keep the build light.
 option(BUILD_TESTING "Build the testing tree." ON)
 if(BUILD_TESTING)
+    # I am choosing the standard name. Vcpkg provides the 'GTest' config.
     find_package(GTest REQUIRED)
 endif()
 
@@ -44,13 +55,17 @@ target_sources(vita PRIVATE src/config.cpp)
 
 target_link_libraries(vita 
     PUBLIC 
+        opentelemetry-cpp::resources
+        opentelemetry-cpp::trace 
+        opentelemetry-cpp::logs
+        opentelemetry-cpp::common
+        opentelemetry-cpp::sdk
         Threads::Threads
         CURL::libcurl
         OpenSSL::SSL
 )
 
 # --- 4. GOOGLETEST (Validation) ---
-# I am wrapping this entire block. When BUILD_TESTING=OFF, CMake ignores the tests/ folder.
 if(BUILD_TESTING)
     enable_testing()
     

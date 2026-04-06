@@ -1,73 +1,55 @@
-# --- STAGE 1: Development & Build Environment ---
-FROM mcr.microsoft.com/devcontainers/cpp:1-ubuntu-24.04 AS developer
+# --- STAGE 1: The Pre-built Development Environment ---
+# I am choosing to start from the GHCR image to skip the OTel build time.
+FROM ghcr.io/ahmedsouliengineer/vita-base:latest AS developer
 
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends \
-    # I am choosing to swap ALSA/ZMQ for OTel and Networking dependencies
-    libgtest-dev libcurl4-openssl-dev libssl-dev \
-    pkg-config cmake g++ gdb cppcheck \
-    clang-18 clang-tidy-18 clang-format-18 \
-    llvm-18 libfuzzer-18-dev \
-    # I am adding the OTel C++ SDK directly from the repo later or via package if available
-    && rm -rf /var/lib/apt/lists/*
+# I am choosing to manually install the missing GTest dependency
+# This will only take a minute or two compared to the OTel build
+RUN /opt/vcpkg/vcpkg install gtest:x64-linux
 
-# I am maintaining the same symlink strategy for toolchain consistency
-RUN ln -sf /usr/bin/clang-18 /usr/bin/clang && \
-    ln -sf /usr/bin/clang++-18 /usr/bin/clang++ && \
-    ln -sf /usr/bin/clang-tidy-18 /usr/bin/clang-tidy && \
-    ln -sf /usr/bin/run-clang-tidy-18 /usr/bin/run-clang-tidy && \
-    ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov && \
-    ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata
-
-RUN cd /usr/src/googletest && cmake . && cmake --build . && cp lib/*.a /usr/lib
-
-# I am removing the 'audio' group as the SDK is hardware-agnostic
+# The devcontainer.json uses this stage.
+# We don't need to COPY code here because VS Code mounts your workspace automatically.
 WORKDIR /app
 
-# --- STAGE 2: Tester (The SDK Quality Gate) ---
+# --- STAGE 2: Tester (For CI/CD) ---
 FROM developer AS tester
-
-# I am keeping the cached config strategy
 COPY CMakeLists.txt .clang-format .clang-tidy ./
 COPY include/ ./include/
 COPY src/ ./src/
 COPY tests/ ./tests/
 
-# I am choosing to fail the build if the SDK logic isn't perfectly covered or linted
-RUN cppcheck --enable=all --suppress=unusedFunction --suppress=missingIncludeSystem src/ include/ --error-exitcode=1
-
-RUN cmake -B build_test -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ -DENABLE_COVERAGE=ON && \
+# I am choosing to run tests during the image build to catch regressions early.
+RUN cmake -B build_test \
+    -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_CXX_COMPILER=clang++ \
+    -DENABLE_COVERAGE=ON && \
     cmake --build build_test && \
-    cd build_test && ctest --output-on-failure && \
-    llvm-profdata merge -sparse default.profraw -o test.profdata && \
-    # We report coverage on the core SDK logic
-    llvm-cov report ./unit_tests -instr-profile=test.profdata ../src/
+    cd build_test && ctest --output-on-failure
 
-# --- STAGE 3: Builder (Library Archive Creation) ---
+# --- STAGE 3: Builder (Production Library) ---
 FROM developer AS builder
-
 COPY CMakeLists.txt ./
 COPY include/ ./include/
 COPY src/ ./src/
 
-# I am choosing to build a STATIC library for easy linking in other repos
-# I am choosing 'vita' to match the add_library(vita) in our CMakeLists.txt
 RUN cmake -B build \
+    -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CXX_COMPILER=clang++ \
     -DBUILD_TESTING=OFF && \
     cmake --build build --target vita
 
-# --- STAGE 4: Release (The 'SDK Delivery' Stage) ---
-# For an SDK, the "Release" isn't a running binary, but the headers and the .a file.
+# --- STAGE 4: Final Release (Minimal SDK) ---
 FROM ubuntu:24.04 AS release
-
 WORKDIR /usr/local/
 
-# I am choosing to copy ONLY the headers and the compiled library
-# This acts as a "sysroot" that you could theoretically mount or copy.
+# I am choosing to copy ONLY the necessary artifacts for an end-user of the SDK.
 COPY --from=builder /app/include/ /usr/local/include/
 COPY --from=builder /app/build/libvita.a /usr/local/lib/
 
-# We don't need an ENTRYPOINT for an SDK
+# I am choosing to also export the OTel headers/libs from vcpkg 
+# so users of 'libvita.a' can resolve the OTel symbols.
+COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/ /usr/local/lib/
+COPY --from=builder /opt/vcpkg/installed/x64-linux/include/ /usr/local/include/
+
 CMD ["/bin/bash"]

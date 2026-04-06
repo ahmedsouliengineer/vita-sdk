@@ -8,26 +8,26 @@
     "runArgs": [
         "--network=host"
     ],
-    // I am adding this to trigger the build automatically when the container opens.
-    "postCreateCommand": "cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build build",
+    // I am choosing to explicitly set GTest_DIR here to end the search ambiguity
+    "postCreateCommand": "cmake -B build -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_PREFIX_PATH=/opt/vcpkg/installed/x64-linux -DGTest_DIR=/opt/vcpkg/installed/x64-linux/share/gtest -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build build",
     
     "customizations": {
         "vscode": {
             "extensions": [
-                "ms-vscode.cpptools",
                 "ms-vscode.cmake-tools",
                 "llvm-vs-code-extensions.vscode-clangd",
-                "hbenl.vscode-test-explorer",
-                "ms-vscode.cpptools-extension-pack"
+                "hbenl.vscode-test-explorer"
             ],
             "settings": {
                 "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
                 "editor.formatOnSave": true,
                 "C_Cpp.intelliSenseEngine": "disabled",
+                "cmake.configureOnOpen": true,
                 "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
                 "clangd.arguments": [
                     "--compile-commands-dir=${workspaceFolder}/build",
-                    "--clang-tidy"
+                    "--clang-tidy",
+                    "--header-insertion=never"
                 ]
             }
         }
