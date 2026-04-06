@@ -6,28 +6,27 @@ on:
   pull_request:
     branches: [ main ]
 
+# I am choosing to keep permissions as a best practice
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    # I am choosing to run the entire job INSIDE your pre-built image
     container:
+      # I am choosing to remove the credentials block entirely.
+      # This works perfectly if the 'vita-base' image is set to Public.
       image: ghcr.io/ahmedsouliengineer/vita-base:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
     - name: "0. Checkout Code"
       uses: actions/checkout@v4
 
-    # I am choosing to skip the 'sudo apt install' step because your base image 
-    # already has Clang 18, CMake, and the OTel dependencies.
-
     - name: "1. Static Analysis (Cppcheck)"
       run: cppcheck --enable=all -I include --suppress=unusedFunction --suppress=missingIncludeSystem src/ include/ --error-exitcode=1
 
     - name: "2. Compilation & Unit Testing"
-      # I am choosing to pass the toolchain file so it finds the OTel/GTest in /opt/vcpkg
       run: |
         cmake -B build \
           -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake \
@@ -41,11 +40,9 @@ jobs:
     - name: "3. Coverage Analysis"
       run: |
         cd build
-        # I am choosing to use the LLVM tools already symlinked in your base image
         llvm-profdata merge -sparse default.profraw -o test.profdata
         llvm-cov report ./unit_tests -instr-profile=test.profdata ../src/
 
     - name: "4. SDK Packaging Verification"
-      # This step still runs on the host Docker daemon to verify the Dockerfile stages
       run: |
         docker build --target release -t vita-sdk-dist -f .devcontainer/Dockerfile .
