@@ -6,27 +6,30 @@ on:
   pull_request:
     branches: [ main ]
 
-# I am choosing to keep permissions as a best practice
 permissions:
   contents: read
   packages: read
 
 jobs:
-  build-and-test:
+  # JOB 1: Validating the Code Logic
+  unit-testing:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/ahmedsouliengineer/vita-base:v1.0.1
       credentials:
         username: ${{ github.actor }}
-        # This remains as a pointer; no real password is ever saved in this file.
         password: ${{ secrets.GITHUB_TOKEN }}
-
+    
     steps:
     - name: "0. Checkout Code"
       uses: actions/checkout@v4
 
     - name: "1. Static Analysis (Cppcheck)"
-      run: cppcheck --enable=all -I include --suppress=unusedFunction --suppress=missingIncludeSystem src/ include/ --error-exitcode=1
+      run: |
+        cppcheck --enable=all -I include \
+          --suppress=unusedFunction \
+          --suppress=missingIncludeSystem \
+          src/ include/ --error-exitcode=1
 
     - name: "2. Compilation & Unit Testing"
       run: |
@@ -45,6 +48,16 @@ jobs:
         llvm-profdata merge -sparse default.profraw -o test.profdata
         llvm-cov report ./unit_tests -instr-profile=test.profdata ../src/
 
-    - name: "4. SDK Packaging Verification"
+  # JOB 2: Validating the SDK Distribution
+  package-verification:
+    runs-on: ubuntu-latest
+    needs: unit-testing # I am choosing to only run this if tests pass
+    
+    steps:
+    - name: "0. Checkout Code"
+      uses: actions/checkout@v4
+
+    - name: "1. Build Multi-Stage Release"
+      # I am choosing to run this on the host runner to access the 'docker' command
       run: |
         docker build --target release -t vita-sdk-dist -f .devcontainer/Dockerfile .
