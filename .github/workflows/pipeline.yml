@@ -15,9 +15,11 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     container:
-      # I am choosing to remove the credentials block entirely.
-      # This works perfectly if the 'vita-base' image is set to Public.
       image: ghcr.io/ahmedsouliengineer/vita-base:latest
+      credentials:
+        username: ${{ github.actor }}
+        # This remains as a pointer; no real password is ever saved in this file.
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
     - name: "0. Checkout Code"
