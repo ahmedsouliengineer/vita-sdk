@@ -18,3 +18,7 @@ RUN git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT \
 # 3. Setup Toolchain Symlinks
 RUN ln -sf /usr/bin/clang-18 /usr/bin/clang && \
     ln -sf /usr/bin/clang++-18 /usr/bin/clang++
+
+# I am choosing to manually install the missing GTest dependency
+# This will only take a minute or two compared to the OTel build
+RUN /opt/vcpkg/vcpkg install gtest:x64-linux

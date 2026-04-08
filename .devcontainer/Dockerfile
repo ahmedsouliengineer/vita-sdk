@@ -2,10 +2,6 @@
 # I am choosing to start from the GHCR image to skip the OTel build time.
 FROM ghcr.io/ahmedsouliengineer/vita-base:latest AS developer
 
-# I am choosing to manually install the missing GTest dependency
-# This will only take a minute or two compared to the OTel build
-RUN /opt/vcpkg/vcpkg install gtest:x64-linux
-
 # The devcontainer.json uses this stage.
 # We don't need to COPY code here because VS Code mounts your workspace automatically.
 WORKDIR /app
@@ -53,3 +49,19 @@ COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/ /usr/local/lib/
 COPY --from=builder /opt/vcpkg/installed/x64-linux/include/ /usr/local/include/
 
 CMD ["/bin/bash"]
+
+
+
+# # --- STAGE 4: Final Release (Minimal SDK) ---
+# FROM ubuntu:24.04 AS release
+# WORKDIR /usr/local/
+
+# # Copy your built library
+# COPY --from=builder /app/include/ /usr/local/include/
+# COPY --from=builder /app/build/libvita.a /usr/local/lib/
+
+# # I am choosing to use a glob to copy only the .a and .so files from vcpkg
+# # This keeps the final SDK image clean of build-only metadata.
+# COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/*.a /usr/local/lib/
+# COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/*.so* /usr/local/lib/
+# COPY --from=builder /opt/vcpkg/installed/x64-linux/include/ /usr/local/include/
