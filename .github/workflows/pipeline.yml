@@ -51,13 +51,17 @@ jobs:
   # JOB 2: Validating the SDK Distribution
   package-verification:
     runs-on: ubuntu-latest
-    needs: unit-testing # I am choosing to only run this if tests pass
+    needs: unit-testing
     
     steps:
     - name: "0. Checkout Code"
       uses: actions/checkout@v4
 
-    - name: "1. Build Multi-Stage Release"
-      # I am choosing to run this on the host runner to access the 'docker' command
+    - name: "1. Log in to GHCR"
+      # I am choosing to use the built-in docker login command on the host
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+    - name: "2. Build Multi-Stage Release"
+      # Now the pull from ghcr.io will be authorized!
       run: |
         docker build --target release -t vita-sdk-dist -f .devcontainer/Dockerfile .
