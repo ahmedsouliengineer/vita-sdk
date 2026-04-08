@@ -1,6 +1,6 @@
 # --- STAGE 1: The Pre-built Development Environment ---
 # I am choosing to start from the GHCR image to skip the OTel build time.
-FROM ghcr.io/ahmedsouliengineer/vita-base:latest AS developer
+FROM ghcr.io/ahmedsouliengineer/vita-base:v1.0.1 AS developer
 
 # The devcontainer.json uses this stage.
 # We don't need to COPY code here because VS Code mounts your workspace automatically.

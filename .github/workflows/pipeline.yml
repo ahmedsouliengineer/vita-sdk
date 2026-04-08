@@ -15,7 +15,7 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/ahmedsouliengineer/vita-base:latest
+      image: ghcr.io/ahmedsouliengineer/vita-base:v1.0.1
       credentials:
         username: ${{ github.actor }}
         # This remains as a pointer; no real password is ever saved in this file.
