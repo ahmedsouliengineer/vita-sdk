@@ -71,6 +71,7 @@ if(BUILD_TESTING)
     
     add_executable(unit_tests 
         tests/unit/test_config.cpp 
+        tests/unit/test_telemetry.cpp 
     )
 
     target_link_libraries(unit_tests 
