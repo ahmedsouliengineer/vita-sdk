@@ -8,27 +8,27 @@
 namespace vita::telemetry
 {
 
-// I am choosing a modern trailing return type to match your header style.
-auto InitializeGlobalTracer(ResourceConfig config)
-    -> std::unique_ptr<TelemetryCleanUp<::opentelemetry::trace::TracerProvider>>
+auto InitializeGlobalTracer(const ResourceConfig& config)
+    -> std::unique_ptr<TelemetryCleanUp<::opentelemetry::sdk::trace::TracerProvider>>
 {
     namespace trace_sdk = ::opentelemetry::sdk::trace;
-    namespace otlp = ::opentelemetry::exporter::otlp;
+    namespace otlp = ::opentelemetry::exporter::otlp; // Fix: Undeclared identifier
 
-    // 1. Create the Exporter (Sends data to an OTel Collector)
     auto exporter = otlp::OtlpHttpExporterFactory::Create();
-
-    // 2. Create the Processor (We use Simple for low-latency SDK logic)
-    auto processor = trace_sdk::SimpleProcessorFactory::Create(std::move(exporter));
-
-    // 3. Create the Provider with your Resource Factory
+    auto processor = trace_sdk::SimpleSpanProcessorFactory::Create(std::move(exporter));
     auto resource = CreateResource(config);
-    auto provider = trace_sdk::TracerProviderFactory::Create(std::move(processor), resource);
 
-    // 4. Set as Global so the user's app can find it
-    ::opentelemetry::trace::Provider::SetTracerProvider(provider);
+    auto sdk_provider_uniq =
+        trace_sdk::TracerProviderFactory::Create(std::move(processor), resource);
 
-    return std::make_unique<TelemetryCleanUp<::opentelemetry::trace::TracerProvider>>(provider);
+    // We keep std::shared_ptr for our Vita guard
+    auto sdk_provider = std::shared_ptr<trace_sdk::TracerProvider>(std::move(sdk_provider_uniq));
+
+    // Fix: Explicitly wrap std::shared_ptr in nostd::shared_ptr for the Global Provider
+    ::opentelemetry::trace::Provider::SetTracerProvider(
+        ::opentelemetry::nostd::shared_ptr<::opentelemetry::trace::TracerProvider>(sdk_provider));
+
+    return std::make_unique<TelemetryCleanUp<trace_sdk::TracerProvider>>(sdk_provider);
 }
 
 } // namespace vita::telemetry

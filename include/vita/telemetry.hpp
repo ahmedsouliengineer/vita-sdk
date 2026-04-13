@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <memory>
 #include <opentelemetry/sdk/resource/resource.h>
-#include <opentelemetry/sdk/resource/semantic_conventions.h>
 #include <string>
 #include <string_view>
 
@@ -12,12 +11,6 @@
 namespace vita::telemetry
 {
 
-/**
- * @brief Configuration for OTel Resource creation.
- * I am choosing this struct to solve 'bugprone-easily-swappable-parameters'.
- * This forces the caller to use designated initializers or an explicit struct,
- * making the 'service_name' and 'service_version' impossible to swap.
- */
 struct ResourceConfig
 {
     std::string_view service_name;
@@ -26,19 +19,16 @@ struct ResourceConfig
 
 /**
  * @brief Factory to create an OTel Resource with Vita-specific defaults.
- * I am choosing the trailing return type '-> opentelemetry::sdk::resource::Resource'
- * to satisfy 'modernize-use-trailing-return-type'.
  */
-inline auto CreateResource(ResourceConfig config) -> ::opentelemetry::sdk::resource::Resource
+inline auto CreateResource(const ResourceConfig& config) -> ::opentelemetry::sdk::resource::Resource
 {
     namespace sdk_resource = ::opentelemetry::sdk::resource;
 
-    // I am choosing the global namespace prefix '::' for opentelemetry
-    // to resolve any ambiguity with our local 'telemetry' namespace.
-    return sdk_resource::Resource::Create(
-        {{sdk_resource::SemanticConventions::kServiceName, std::string(config.service_name)},
-         {sdk_resource::SemanticConventions::kServiceVersion, std::string(config.service_version)},
-         {sdk_resource::SemanticConventions::kDeploymentEnvironment, config::GetDeploymentEnv()}});
+    // I am choosing to use hardcoded OTel keys to avoid the missing header issue.
+    // "service.name" and "service.version" are the standard OTel strings.
+    return sdk_resource::Resource::Create({{"service.name", std::string(config.service_name)},
+                                           {"service.version", std::string(config.service_version)},
+                                           {"deployment.environment", config::GetDeploymentEnv()}});
 }
 
 /**
@@ -58,14 +48,18 @@ public:
         CleanUp();
     }
 
-    /**
-     * @brief Manually triggers the provider shutdown.
-     */
     auto CleanUp() -> void
     {
         if (provider_) {
-            provider_->ForceFlush();
-            provider_->Shutdown();
+            // I am choosing 'instance' to satisfy the 3-character minimum
+            // and clearly represent the object being checked.
+            if constexpr (requires(T& instance) {
+                              instance.ForceFlush();
+                              instance.Shutdown();
+                          }) {
+                provider_->ForceFlush();
+                provider_->Shutdown();
+            }
             provider_.reset();
         }
     }
@@ -76,6 +70,9 @@ public:
 
     // Moving is allowed to transfer ownership.
     TelemetryCleanUp(TelemetryCleanUp&&) noexcept = default;
+
+    // I am choosing to explicitly return TelemetryCleanUp&
+    // to satisfy the C++ Core Guidelines and clang-tidy.
     auto operator=(TelemetryCleanUp&&) noexcept -> TelemetryCleanUp& = default;
 
 private:

@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
 # I am choosing to let the toolchain handle the heavy lifting.
-# Once GTest is installed via vcpkg, this toolchain file will find it automatically.
 if(EXISTS "/opt/vcpkg/scripts/buildsystems/vcpkg.cmake")
     set(CMAKE_TOOLCHAIN_FILE "/opt/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 endif()
@@ -14,7 +13,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# I am choosing aggressive Clang warnings to keep our SDK robust.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(
         -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor
@@ -31,15 +29,42 @@ if(ENABLE_COVERAGE)
     add_link_options(-fprofile-instr-generate -fcoverage-mapping)
 endif()
 
-# --- 2. FIND PACKAGES ---
+# --- 2. FIND PACKAGES & AUDIT ---
 find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(opentelemetry-cpp REQUIRED)
 
+message(STATUS "--- VITA SDK FILESYSTEM AUDIT ---")
+
+# Audit the OTel Resource Header location
+find_path(OTEL_INCLUDE_PATH
+    NAMES opentelemetry/sdk/resource/resource.h
+    PATHS /opt/vcpkg/installed/x64-linux/include
+    NO_DEFAULT_PATH
+)
+
+if(OTEL_INCLUDE_PATH)
+    message(STATUS "[SUCCESS] OTel Headers found at: ${OTEL_INCLUDE_PATH}")
+else()
+    message(WARNING "[AUDIT FAIL] OTel Headers NOT found in expected vcpkg path!")
+endif()
+
+# Audit the Semantic Conventions (Using the advisory bypass)
+find_file(OTEL_SEMCONV_HEADER
+    NAMES semantic_conventions.h resource_attributes.h
+    PATH_SUFFIXES sdk/resource semconv
+    PATHS ${OTEL_INCLUDE_PATH}/opentelemetry
+)
+
+if(NOT OTEL_SEMCONV_HEADER)
+    message(WARNING "[ADVISORY] Semantic Conventions header missing. Using internal string literal fallback.")
+endif()
+
+message(STATUS "--- END VITA SDK AUDIT ---")
+
 option(BUILD_TESTING "Build the testing tree." ON)
 if(BUILD_TESTING)
-    # I am choosing the standard name. Vcpkg provides the 'GTest' config.
     find_package(GTest REQUIRED)
 endif()
 
@@ -51,15 +76,21 @@ target_include_directories(vita PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-target_sources(vita PRIVATE src/config.cpp)
+target_sources(vita 
+    PRIVATE 
+        src/config.cpp
+        src/telemetry.cpp
+)
 
+# I am choosing to use the exact plural 'resources' and explicit exporter targets 
+# confirmed by the terminal audit.
 target_link_libraries(vita 
     PUBLIC 
         opentelemetry-cpp::resources
         opentelemetry-cpp::trace 
-        opentelemetry-cpp::logs
         opentelemetry-cpp::common
         opentelemetry-cpp::sdk
+        opentelemetry-cpp::otlp_http_exporter
         Threads::Threads
         CURL::libcurl
         OpenSSL::SSL
@@ -77,6 +108,9 @@ if(BUILD_TESTING)
     target_link_libraries(unit_tests 
         PRIVATE 
             vita 
+            opentelemetry-cpp::resources
+            opentelemetry-cpp::common
+            opentelemetry-cpp::trace
             GTest::gtest 
             GTest::gtest_main
     )

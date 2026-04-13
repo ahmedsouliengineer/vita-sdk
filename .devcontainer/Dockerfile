@@ -39,17 +39,23 @@ RUN cmake -B build \
 FROM ubuntu:24.04 AS release
 WORKDIR /usr/local/
 
-# I am choosing to copy ONLY the necessary artifacts for an end-user of the SDK.
+# I am choosing to copy our SDK artifacts first.
 COPY --from=builder /app/include/ /usr/local/include/
 COPY --from=builder /app/build/libvita.a /usr/local/lib/
 
-# I am choosing to also export the OTel headers/libs from vcpkg 
-# so users of 'libvita.a' can resolve the OTel symbols.
-COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/ /usr/local/lib/
+# I am choosing to copy ONLY the headers and the compiled binaries from vcpkg.
+# This excludes hundreds of megabytes of CMake metadata and build logs.
 COPY --from=builder /opt/vcpkg/installed/x64-linux/include/ /usr/local/include/
+COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/*.a /usr/local/lib/
+COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/*.so* /usr/local/lib/
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcurl4 \
+    libssl3 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 CMD ["/bin/bash"]
-
 
 
 # # --- STAGE 4: Final Release (Minimal SDK) ---
