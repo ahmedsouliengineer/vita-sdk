@@ -34,6 +34,11 @@ find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(opentelemetry-cpp REQUIRED)
+# I am choosing to require cpp-httplib for our health monitoring server.
+# I am choosing to find httplib using its actual exported CMake name.
+# The audit revealed that even if the vcpkg port is 'cpp-httplib', 
+# the configuration file is named 'httplibConfig.cmake'.
+find_package(httplib CONFIG REQUIRED)
 
 message(STATUS "--- VITA SDK FILESYSTEM AUDIT ---")
 
@@ -48,6 +53,19 @@ if(OTEL_INCLUDE_PATH)
     message(STATUS "[SUCCESS] OTel Headers found at: ${OTEL_INCLUDE_PATH}")
 else()
     message(WARNING "[AUDIT FAIL] OTel Headers NOT found in expected vcpkg path!")
+endif()
+
+# Audit the httplib location discovered in the manual search
+find_path(HTTPLIB_INCLUDE_PATH
+    NAMES httplib.h
+    PATHS /opt/vcpkg/installed/x64-linux/include
+    NO_DEFAULT_PATH
+)
+
+if(HTTPLIB_INCLUDE_PATH)
+    message(STATUS "[SUCCESS] httplib Header found at: ${HTTPLIB_INCLUDE_PATH}")
+else()
+    message(WARNING "[AUDIT FAIL] httplib Header NOT found!")
 endif()
 
 # Audit the Semantic Conventions (Using the advisory bypass)
@@ -76,14 +94,16 @@ target_include_directories(vita PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+# I am choosing to add health.cpp and trace.cpp to the library sources.
 target_sources(vita 
     PRIVATE 
         src/config.cpp
         src/telemetry.cpp
+        src/health.cpp
+        # src/trace.cpp
 )
 
-# I am choosing to use the exact plural 'resources' and explicit exporter targets 
-# confirmed by the terminal audit.
+# I am choosing to link cpp-httplib and the verified OTel targets.
 target_link_libraries(vita 
     PUBLIC 
         opentelemetry-cpp::resources
@@ -91,6 +111,7 @@ target_link_libraries(vita
         opentelemetry-cpp::common
         opentelemetry-cpp::sdk
         opentelemetry-cpp::otlp_http_exporter
+        httplib::httplib
         Threads::Threads
         CURL::libcurl
         OpenSSL::SSL
@@ -103,6 +124,7 @@ if(BUILD_TESTING)
     add_executable(unit_tests 
         tests/unit/test_config.cpp 
         tests/unit/test_telemetry.cpp 
+        # tests/unit/test_health.cpp # I am choosing to prepare for health tests.
     )
 
     target_link_libraries(unit_tests 

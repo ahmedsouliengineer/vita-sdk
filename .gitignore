@@ -2,6 +2,7 @@
 # I am ignoring the entire build directory because these files are platform-specific.
 # I want my CI/CD and my teammates to generate their own binaries from scratch.
 build/
+build_test/
 build_fuzz/
 bin/
 lib/
