@@ -29,23 +29,22 @@ if(ENABLE_COVERAGE)
     add_link_options(-fprofile-instr-generate -fcoverage-mapping)
 endif()
 
-# --- 2. FIND PACKAGES & AUDIT ---
+# --- 2. FIND PACKAGES ---
 find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(opentelemetry-cpp REQUIRED)
-# I am choosing to provide a specific hint for httplib since the 
-# standard vcpkg search is failing for this specific package.
-set(httplib_DIR "/opt/vcpkg/installed/x64-linux/share/httplib")
-# I am choosing to require cpp-httplib for our health monitoring server.
-# I am choosing to find httplib using its actual exported CMake name.
-# The audit revealed that even if the vcpkg port is 'cpp-httplib', 
-# the configuration file is named 'httplibConfig.cmake'.
-find_package(httplib CONFIG REQUIRED)
+
+# I am choosing to use the PATHS hint directly in find_package. 
+# This is the most resilient way to help the vcpkg toolchain locate 
+# the httplibConfig.cmake file.
+find_package(httplib CONFIG REQUIRED 
+    PATHS "/opt/vcpkg/installed/x64-linux"
+    PATH_SUFFIXES "share/httplib"
+)
 
 message(STATUS "--- VITA SDK FILESYSTEM AUDIT ---")
 
-# Audit the OTel Resource Header location
 find_path(OTEL_INCLUDE_PATH
     NAMES opentelemetry/sdk/resource/resource.h
     PATHS /opt/vcpkg/installed/x64-linux/include
@@ -55,31 +54,7 @@ find_path(OTEL_INCLUDE_PATH
 if(OTEL_INCLUDE_PATH)
     message(STATUS "[SUCCESS] OTel Headers found at: ${OTEL_INCLUDE_PATH}")
 else()
-    message(WARNING "[AUDIT FAIL] OTel Headers NOT found in expected vcpkg path!")
-endif()
-
-# Audit the httplib location discovered in the manual search
-find_path(HTTPLIB_INCLUDE_PATH
-    NAMES httplib.h
-    PATHS /opt/vcpkg/installed/x64-linux/include
-    NO_DEFAULT_PATH
-)
-
-if(HTTPLIB_INCLUDE_PATH)
-    message(STATUS "[SUCCESS] httplib Header found at: ${HTTPLIB_INCLUDE_PATH}")
-else()
-    message(WARNING "[AUDIT FAIL] httplib Header NOT found!")
-endif()
-
-# Audit the Semantic Conventions (Using the advisory bypass)
-find_file(OTEL_SEMCONV_HEADER
-    NAMES semantic_conventions.h resource_attributes.h
-    PATH_SUFFIXES sdk/resource semconv
-    PATHS ${OTEL_INCLUDE_PATH}/opentelemetry
-)
-
-if(NOT OTEL_SEMCONV_HEADER)
-    message(WARNING "[ADVISORY] Semantic Conventions header missing. Using internal string literal fallback.")
+    message(WARNING "[AUDIT FAIL] OTel Headers NOT found!")
 endif()
 
 message(STATUS "--- END VITA SDK AUDIT ---")
@@ -97,16 +72,14 @@ target_include_directories(vita PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-# I am choosing to add health.cpp and trace.cpp to the library sources.
+# I am choosing to include the health source file now.
 target_sources(vita 
     PRIVATE 
         src/config.cpp
         src/telemetry.cpp
         src/health.cpp
-        # src/trace.cpp
 )
 
-# I am choosing to link cpp-httplib and the verified OTel targets.
 target_link_libraries(vita 
     PUBLIC 
         opentelemetry-cpp::resources
@@ -127,15 +100,13 @@ if(BUILD_TESTING)
     add_executable(unit_tests 
         tests/unit/test_config.cpp 
         tests/unit/test_telemetry.cpp 
-        # tests/unit/test_health.cpp # I am choosing to prepare for health tests.
+        tests/unit/test_health.cpp 
     )
 
     target_link_libraries(unit_tests 
         PRIVATE 
             vita 
-            opentelemetry-cpp::resources
-            opentelemetry-cpp::common
-            opentelemetry-cpp::trace
+            httplib::httplib
             GTest::gtest 
             GTest::gtest_main
     )
