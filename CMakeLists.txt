@@ -34,6 +34,9 @@ find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(opentelemetry-cpp REQUIRED)
+# I am choosing to provide a specific hint for httplib since the 
+# standard vcpkg search is failing for this specific package.
+set(httplib_DIR "/opt/vcpkg/installed/x64-linux/share/httplib")
 # I am choosing to require cpp-httplib for our health monitoring server.
 # I am choosing to find httplib using its actual exported CMake name.
 # The audit revealed that even if the vcpkg port is 'cpp-httplib', 
