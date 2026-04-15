@@ -39,23 +39,22 @@ RUN cmake -B build \
 FROM ubuntu:24.04 AS release
 WORKDIR /usr/local/
 
-# I am choosing to copy our SDK artifacts first.
-COPY --from=builder /app/include/ /usr/local/include/
-COPY --from=builder /app/build/libvita.a /usr/local/lib/
+RUN mkdir -p /usr/local/include /usr/local/lib
 
-# I am choosing to copy ONLY the headers and the compiled binaries from vcpkg.
-# This excludes hundreds of megabytes of CMake metadata and build logs.
+# Copy SDK artifacts
+COPY --from=builder /app/include/ /usr/local/include/
+COPY --from=builder /app/build/libvita.* /usr/local/lib/
+
+# Copy vcpkg dependencies
 COPY --from=builder /opt/vcpkg/installed/x64-linux/include/ /usr/local/include/
-COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/*.a /usr/local/lib/
-COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/*.so* /usr/local/lib/
+COPY --from=builder /opt/vcpkg/installed/x64-linux/lib/ /usr/local/lib/
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4 \
     libssl3 \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-CMD ["/bin/bash"]
+    && rm -rf /var/lib/apt/lists/* \
+    && ldconfig  # I am choosing to refresh the library cache here to ensure the new .so files are recognized.
 
 
 # # --- STAGE 4: Final Release (Minimal SDK) ---
