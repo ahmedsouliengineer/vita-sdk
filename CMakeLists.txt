@@ -34,13 +34,13 @@ find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(opentelemetry-cpp REQUIRED)
+# I am choosing to help httplib find its hidden dependencies.
+# The debug log shows it is looking for 'unofficial-brotli'.
+find_package(unofficial-brotli CONFIG REQUIRED)
 
-# I am choosing to use the PATHS hint directly in find_package. 
-# This is the most resilient way to help the vcpkg toolchain locate 
-# the httplibConfig.cmake file.
+# Now that dependencies are satisfied, I am choosing to find httplib.
 find_package(httplib CONFIG REQUIRED 
-    PATHS "/opt/vcpkg/installed/x64-linux"
-    PATH_SUFFIXES "share/httplib"
+    HINTS "/opt/vcpkg/installed/x64-linux/share/httplib"
 )
 
 message(STATUS "--- VITA SDK FILESYSTEM AUDIT ---")
