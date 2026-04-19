@@ -102,6 +102,7 @@ target_sources(vita
         src/config.cpp
         src/telemetry.cpp
         src/health.cpp
+        src/log.cpp
 )
 
 target_link_libraries(vita 
@@ -125,6 +126,7 @@ if(BUILD_TESTING)
         tests/unit/test_config.cpp 
         tests/unit/test_telemetry.cpp 
         tests/unit/test_health.cpp 
+        tests/unit/log_test.cpp 
     )
 
     target_link_libraries(unit_tests 
