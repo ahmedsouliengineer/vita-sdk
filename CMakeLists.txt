@@ -114,6 +114,7 @@ target_link_libraries(vita
         opentelemetry-cpp::common
         opentelemetry-cpp::sdk
         opentelemetry-cpp::otlp_http_exporter
+        opentelemetry-cpp::otlp_http_metric_exporter
         httplib::httplib
         Threads::Threads
         CURL::libcurl
