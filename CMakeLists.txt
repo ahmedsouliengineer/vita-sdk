@@ -104,6 +104,7 @@ target_sources(vita
         src/health.cpp
         src/log.cpp
         src/trace.cpp
+        src/metric.cpp
 )
 
 target_link_libraries(vita 
@@ -129,6 +130,7 @@ if(BUILD_TESTING)
         tests/unit/test_health.cpp 
         tests/unit/log_test.cpp 
         tests/unit/trace_test.cpp
+        tests/unit/metric_test.cpp
     )
 
     target_link_libraries(unit_tests 
